@@ -5,12 +5,12 @@ import aiohttp
 from aiohttp import web
 from config import MAX_BOT_TOKEN, MAX_API_URL
 
-# Принудительно используем порт 8000 (или тот, который хостинг передаст в систему)
-PORT = int(os.getenv("PORT", 8000))
+# Автоматически берем порт 3000 от хостинга
+PORT = int(os.getenv("PORT", 3000))
 
 async def init_max_webhook():
-    bot_id = "bot_1781808655_2628_nemrito".replace("_", "-")
-    webhook_url = f"https://{bot_id}.bothost.ru"
+    # ОСТАВЛЯЕМ ПОДЧЁРКИВАНИЯ! Пробуем оригинальный адрес хостинга
+    webhook_url = "https://bot_1781808655_2628_nemrito.bothost.ru"
     
     headers = {
         "Authorization": MAX_BOT_TOKEN,
@@ -21,7 +21,7 @@ async def init_max_webhook():
         "url": webhook_url
     }
     
-    print(f"📡 Регистрируем вебхук на: {webhook_url}", flush=True)
+    print(f"📡 Пробуем зарегистрировать оригинальный адрес с подчёркиваниями: {webhook_url}", flush=True)
     
     async with aiohttp.ClientSession() as session:
         try:
@@ -34,7 +34,7 @@ async def init_max_webhook():
 async def handle_webhook(request):
     try:
         data = await request.json()
-        print(f"📩 УРА! МАКС ПРИСЛАЛ СОБЫТИЕ: {data}", flush=True)
+        print(f"📩 МАКС ПРИСЛАЛ СОБЫТИЕ: {data}", flush=True)
         return web.Response(text="OK", status=200)
     except Exception as e:
         print(f"❌ Ошибка парсинга события: {e}", flush=True)
@@ -51,7 +51,6 @@ async def main():
     runner = web.AppRunner(app)
     await runner.setup()
     
-    # Запускаем сервер на интерфейсе 0.0.0.0 и порту 8000
     site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
     print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
