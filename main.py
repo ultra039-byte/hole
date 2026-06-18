@@ -18,13 +18,13 @@ async def init_max_webhook():
         "Content-Type": "application/json"
     }
     
-    # Явно передаем типы обновлений, чтобы MAX знал, какие события нам слать
+    # Пробуем указать точные типы событий по стандарту MAX Business API
     payload = {
         "url": webhook_url,
-        "update_types": ["message", "bot_started"]
+        "update_types": ["message.new", "bot_started"]
     }
     
-    print(f"📡 Перерегистрируем подписку с явными событиями на: {webhook_url}", flush=True)
+    print(f"📡 Перерегистрируем подписку с исправленными событиями на: {webhook_url}", flush=True)
     
     async with aiohttp.ClientSession() as session:
         try:
