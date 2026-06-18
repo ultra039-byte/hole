@@ -1,11 +1,11 @@
-import pytz
+import os
+    import pytz
 
-# Жёстко прописываем токены прямо в код
-MAX_BOT_TOKEN = "f9LHodD0cOKcINRwAI3a7WF4XKt0KCzAXvoyYwjUPzLNr-r2bxu9685aqelAGFiA27iz_zMRw54hmI6WI9px"
-VPOSTER_API_TOKEN = "vp1.a.4atLJdJ0TVWY0yrT14_4OWmNgiIi4ZRXGk86KqcMtYdMDUK4KmaFwGUpZO2QOn_XSyCaxBfRpPkRRXhWw2UBM"
+    # Код проверит вообще все возможные варианты названий переменных из панели
+    MAX_BOT_TOKEN = os.getenv("MAX_BOT_TOKEN") or os.getenv("BOT_TOKEN") or os.getenv("MAX_TOKEN")
+    VPOSTER_API_TOKEN = os.getenv("VPOSTER_API_TOKEN")
 
-# API URL-адреса
-MAX_API_URL = "https://api.max-messenger.ru/v1" 
-VPOSTER_API_URL = "https://api.vposter.ru/v1"
+    MAX_API_URL = "https://api.max-messenger.ru/v1" 
+    VPOSTER_API_URL = "https://api.vposter.ru/v1"
 
-MOSCOW_TZ = pytz.timezone('Europe/Moscow')
+    MOSCOW_TZ = pytz.timezone('Europe/Moscow')
