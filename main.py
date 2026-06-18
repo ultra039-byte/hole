@@ -5,13 +5,12 @@ import aiohttp
 from aiohttp import web
 from config import MAX_BOT_TOKEN, MAX_API_URL
 
-# Автоматически берем порт 3000 от хостинга
-PORT = int(os.getenv("PORT", 3000))
+# Render автоматически передает правильный порт в переменную окружения PORT
+PORT = int(os.getenv("PORT", 10000))
 
 async def init_max_webhook():
-    # Переводим бота на официальный веб-домен хостинга с заменой знаков на дефисы
-    bot_id = "bot_1781808655_2628_nemrito".replace("_", "-")
-    webhook_url = f"https://{bot_id}.bothost.tech"
+    # Твоя новая постоянная ссылка на Render
+    webhook_url = "https://mark-x-bot.onrender.com"
     
     headers = {
         "Authorization": MAX_BOT_TOKEN,
@@ -22,7 +21,7 @@ async def init_max_webhook():
         "url": webhook_url
     }
     
-    print(f"📡 Пробуем выделить вебхук на домене .TECH: {webhook_url}", flush=True)
+    print(f"📡 Регистрируем феншуйный вебхук на Render: {webhook_url}", flush=True)
     
     async with aiohttp.ClientSession() as session:
         try:
@@ -42,16 +41,17 @@ async def handle_webhook(request):
         return web.Response(text="Error", status=500)
 
 async def main():
-    print(f"🔥 МАРК X ЗАПУСКАЕТСЯ НА ПОРТУ {PORT}... 🔥", flush=True)
+    print(f"🔥 МАРК X ЗАПУСКАЕТСЯ НА RENDER (ПОРТ {PORT})... 🔥", flush=True)
     
     app = web.Application()
     app.router.add_post("/", handle_webhook)
     app.router.add_post("/{tail:.*}", handle_webhook)
-    app.router.add_get("/", lambda r: web.Response(text="Бот МаркX онлайн."))
+    app.router.add_get("/", lambda r: web.Response(text="Бот МаркX онлайн на Render!"))
 
     runner = web.AppRunner(app)
     await runner.setup()
     
+    # Слушаем порт, который выделил Render
     site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
     print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
