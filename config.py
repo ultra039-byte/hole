@@ -1,11 +1,10 @@
 import os
-    import pytz
+import pytz
 
-    # Код проверит вообще все возможные варианты названий переменных из панели
-    MAX_BOT_TOKEN = os.getenv("MAX_BOT_TOKEN") or os.getenv("BOT_TOKEN") or os.getenv("MAX_TOKEN")
-    VPOSTER_API_TOKEN = os.getenv("VPOSTER_API_TOKEN")
+MAX_BOT_TOKEN = os.getenv("MAX_BOT_TOKEN") or os.getenv("BOT_TOKEN") or os.getenv("MAX_TOKEN")
+VPOSTER_API_TOKEN = os.getenv("VPOSTER_API_TOKEN")
 
-    MAX_API_URL = "https://api.max-messenger.ru/v1" 
-    VPOSTER_API_URL = "https://api.vposter.ru/v1"
+MAX_API_URL = "https://api.max-messenger.ru/v1" 
+VPOSTER_API_URL = "https://api.vposter.ru/v1"
 
-    MOSCOW_TZ = pytz.timezone('Europe/Moscow')
+MOSCOW_TZ = pytz.timezone('Europe/Moscow')
