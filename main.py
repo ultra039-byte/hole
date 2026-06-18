@@ -5,15 +5,15 @@ import aiohttp
 from aiohttp import web
 from config import MAX_BOT_TOKEN, MAX_API_URL
 
-# Render автоматически выдаёт правильный порт в переменную окружения PORT (обычно 10000)
+# Порт от Render
 PORT = int(os.getenv("PORT", 10000))
 
 async def init_max_webhook():
-    # Твоя ссылка на Render
+    # Наша ссылка на Render
     webhook_url = "https://mark-x-bot.onrender.com"
     
-    # Каноничный запрос к VPoster: метод setWebhook, токен и URL передаются параметрами
-    url = f"{MAX_API_URL}/setWebhook?token={MAX_BOT_TOKEN}&url={webhook_url}"
+    # Архитектура VPoster: метод передается в параметре 'action', а не в пути URL!
+    url = f"{MAX_API_URL}?token={MAX_BOT_TOKEN}&action=setWebhook&url={webhook_url}"
     
     print(f"📡 Регистрируем феншуйный вебхук на VPoster: {webhook_url}", flush=True)
     
@@ -45,12 +45,11 @@ async def main():
     runner = web.AppRunner(app)
     await runner.setup()
     
-    # Слушаем порт, выделенный хостингом
     site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
     print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
     
-    # Сразу при старте пинаем VPoster, чтобы слал хуки сюда
+    # Пингуем с новым синтаксисом параметров
     await init_max_webhook()
     
     while True:
