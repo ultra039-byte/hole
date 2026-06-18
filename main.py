@@ -18,13 +18,13 @@ async def init_max_webhook():
         "Content-Type": "application/json"
     }
     
-    # Пробуем указать точные типы событий по стандарту MAX Business API
+    # Убираем массив update_types совсем. 
+    # MAX примет чистый URL и автоматически включит трансляцию всех событий бота!
     payload = {
-        "url": webhook_url,
-        "update_types": ["message.new", "bot_started"]
+        "url": webhook_url
     }
     
-    print(f"📡 Перерегистрируем подписку с исправленными событиями на: {webhook_url}", flush=True)
+    print(f"📡 Перерегистрируем подписку без фильтра событий на: {webhook_url}", flush=True)
     
     async with aiohttp.ClientSession() as session:
         try:
