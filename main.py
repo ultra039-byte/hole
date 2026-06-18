@@ -5,11 +5,11 @@ import aiohttp
 from aiohttp import web
 from config import MAX_BOT_TOKEN, MAX_API_URL
 
-# Автоматически берем порт, который выставлен у тебя в панели BotHost (по умолчанию 3000 или 8000)
-PORT = int(os.getenv("PORT", 8080))
+# Автоматически берем порт от хостинга BotHost
+PORT = int(os.getenv("PORT", 3000))
 
 async def init_max_webhook():
-    # ВАЖНО: Заменяем подчеркивания на дефисы, как требует DNS-система хостинга!
+    # Заменяем подчеркивания на дефисы для правильного DNS-адреса хостинга
     bot_id = "bot_1781808655_2628_nemrito".replace("_", "-")
     webhook_url = f"https://{bot_id}.bothost.ru"
     
@@ -18,22 +18,21 @@ async def init_max_webhook():
         "Content-Type": "application/json"
     }
     
+    # Явно передаем типы обновлений, чтобы MAX знал, какие события нам слать
     payload = {
-        "url": webhook_url
+        "url": webhook_url,
+        "update_types": ["message", "bot_started"]
     }
     
-    print(f"📡 Переподключаем MAX на ПРАВИЛЬНЫЙ DNS-адрес: {webhook_url}", flush=True)
+    print(f"📡 Перерегистрируем подписку с явными событиями на: {webhook_url}", flush=True)
     
     async with aiohttp.ClientSession() as session:
         try:
             async with session.post(f"{MAX_API_URL}/subscriptions", json=payload, headers=headers) as resp:
                 result = await resp.json()
-                if resp.status in [200, 201]:
-                    print("🎉 ВЕБХУК УСПЕШНО ПЕРЕРЕГИСТРИРОВАН НА НОВЫЙ АДРЕС!", flush=True)
-                else:
-                    print(f"⚠️ Ошибка регистрации (Статус {resp.status}): {result}", flush=True)
+                print(f"📡 Ответ сервера MAX на подписку: {result}", flush=True)
         except Exception as e:
-            print(f"❌ Ошибка отправки запроса: {e}", flush=True)
+            print(f"❌ Ошибка отправки запроса подписки: {e}", flush=True)
 
 async def handle_webhook(request):
     try:
@@ -55,12 +54,11 @@ async def main():
     runner = web.AppRunner(app)
     await runner.setup()
     
-    # Слушаем строго на 0.0.0.0 и на порту из переменной хостинга
     site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
     print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
     
-    # Регистрируем верный HTTPS адрес в мессенджере
+    # Включаем подписку
     await init_max_webhook()
     
     while True:
