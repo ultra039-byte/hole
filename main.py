@@ -1,15 +1,17 @@
 import asyncio
-import aiohttp
 import sys
-from config import MAX_BOT_TOKEN, MAX_API_URL
+from config import MAX_BOT_TOKEN
 
 async def main():
-    print("🚀 [МаркX] Бот успешно запущен и готов к работе!")
-    print(f"📡 Токен связи подгружен: {str(MAX_BOT_TOKEN)[:5]}***")
-
-    async with aiohttp.ClientSession() as session:
-        while True:
-            await asyncio.sleep(3600)
+    # Этот текст обязан мгновенно появиться в логах
+    print("🔥 МАРК X ОФИЦИАЛЬНО ЖИВ И В СТРОЮ! 🔥", flush=True)
+    print(f"📡 Токен мессенджера успешно подгружен: {str(MAX_BOT_TOKEN)[:5]}***", flush=True)
+    
+    counter = 0
+    while True:
+        counter += 5
+        print(f"🟢 Робот активен. Время в сети: {counter} сек.", flush=True)
+        await asyncio.sleep(5)
 
 if __name__ == "__main__":
     try:
