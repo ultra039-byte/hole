@@ -9,8 +9,9 @@ from config import MAX_BOT_TOKEN, MAX_API_URL
 PORT = int(os.getenv("PORT", 3000))
 
 async def init_max_webhook():
-    # ОСТАВЛЯЕМ ПОДЧЁРКИВАНИЯ! Пробуем оригинальный адрес хостинга
-    webhook_url = "https://bot_1781808655_2628_nemrito.bothost.ru"
+    # Переводим бота на официальный веб-домен хостинга с заменой знаков на дефисы
+    bot_id = "bot_1781808655_2628_nemrito".replace("_", "-")
+    webhook_url = f"https://{bot_id}.bothost.tech"
     
     headers = {
         "Authorization": MAX_BOT_TOKEN,
@@ -21,7 +22,7 @@ async def init_max_webhook():
         "url": webhook_url
     }
     
-    print(f"📡 Пробуем зарегистрировать оригинальный адрес с подчёркиваниями: {webhook_url}", flush=True)
+    print(f"📡 Пробуем выделить вебхук на домене .TECH: {webhook_url}", flush=True)
     
     async with aiohttp.ClientSession() as session:
         try:
@@ -34,7 +35,7 @@ async def init_max_webhook():
 async def handle_webhook(request):
     try:
         data = await request.json()
-        print(f"📩 МАКС ПРИСЛАЛ СОБЫТИЕ: {data}", flush=True)
+        print(f"📩 УРА! МАКС ПРИСЛАЛ СОБЫТИЕ: {data}", flush=True)
         return web.Response(text="OK", status=200)
     except Exception as e:
         print(f"❌ Ошибка парсинга события: {e}", flush=True)
