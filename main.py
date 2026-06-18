@@ -1,24 +1,39 @@
 import asyncio
 import sys
+import os
 import aiohttp
 from aiohttp import web
 from config import MAX_BOT_TOKEN, MAX_API_URL
 
-async def init_max_integration():
+# Автоматически берем порт, который выставлен у тебя в панели BotHost (по умолчанию 3000 или 8000)
+PORT = int(os.getenv("PORT", 8080))
+
+async def init_max_webhook():
+    # ВАЖНО: Заменяем подчеркивания на дефисы, как требует DNS-система хостинга!
+    bot_id = "bot_1781808655_2628_nemrito".replace("_", "-")
+    webhook_url = f"https://{bot_id}.bothost.ru"
+    
     headers = {
         "Authorization": MAX_BOT_TOKEN,
         "Content-Type": "application/json"
     }
     
+    payload = {
+        "url": webhook_url
+    }
+    
+    print(f"📡 Переподключаем MAX на ПРАВИЛЬНЫЙ DNS-адрес: {webhook_url}", flush=True)
+    
     async with aiohttp.ClientSession() as session:
-        # Проверяем, что там сейчас думает MAX про наш вебхук
-        print("🔍 Запрашиваем у MAX статус нашей подписки...", flush=True)
         try:
-            async with session.get(f"{MAX_API_URL}/subscriptions", headers=headers) as resp:
+            async with session.post(f"{MAX_API_URL}/subscriptions", json=payload, headers=headers) as resp:
                 result = await resp.json()
-                print(f"📡 Статус подписок от MAX: {result}", flush=True)
+                if resp.status in [200, 201]:
+                    print("🎉 ВЕБХУК УСПЕШНО ПЕРЕРЕГИСТРИРОВАН НА НОВЫЙ АДРЕС!", flush=True)
+                else:
+                    print(f"⚠️ Ошибка регистрации (Статус {resp.status}): {result}", flush=True)
         except Exception as e:
-            print(f"❌ Не удалось проверить статус подписок: {e}", flush=True)
+            print(f"❌ Ошибка отправки запроса: {e}", flush=True)
 
 async def handle_webhook(request):
     try:
@@ -30,21 +45,23 @@ async def handle_webhook(request):
         return web.Response(text="Error", status=500)
 
 async def main():
-    print("🔥 МАРК X ЗАПУСКАЕТ ДИАГНОСТИКУ... 🔥", flush=True)
+    print(f"🔥 МАРК X ЗАПУСКАЕТСЯ НА ПОРТУ {PORT}... 🔥", flush=True)
     
     app = web.Application()
-    # Слушаем и корень, и любые вложенные пути на случай, если MAX стучится туда
     app.router.add_post("/", handle_webhook)
     app.router.add_post("/{tail:.*}", handle_webhook)
-    app.router.add_get("/", lambda r: web.Response(text="МаркX запущен."))
+    app.router.add_get("/", lambda r: web.Response(text="Бот МаркX онлайн."))
 
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 3000)
-    await site.start()
-    print("🟢 Локальный веб-сервер поднят на порту 3000.", flush=True)
     
-    await init_max_integration()
+    # Слушаем строго на 0.0.0.0 и на порту из переменной хостинга
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+    print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
+    
+    # Регистрируем верный HTTPS адрес в мессенджере
+    await init_max_webhook()
     
     while True:
         await asyncio.sleep(3600)
