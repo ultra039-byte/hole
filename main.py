@@ -18,13 +18,12 @@ async def init_max_webhook():
         "Content-Type": "application/json"
     }
     
-    # Убираем массив update_types совсем. 
-    # MAX примет чистый URL и автоматически включит трансляцию всех событий бота!
+    # Отправляем только URL. MAX сам включит дефолтные события (сообщения и старты)
     payload = {
         "url": webhook_url
     }
     
-    print(f"📡 Перерегистрируем подписку без фильтра событий на: {webhook_url}", flush=True)
+    print(f"📡 Перерегистрируем подписку БЕЗ фильтра событий на: {webhook_url}", flush=True)
     
     async with aiohttp.ClientSession() as session:
         try:
@@ -58,7 +57,7 @@ async def main():
     await site.start()
     print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
     
-    # Включаем подписку
+    # Включаем подписку без ломающих параметров
     await init_max_webhook()
     
     while True:
