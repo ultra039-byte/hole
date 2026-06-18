@@ -7,53 +7,58 @@ from config import MAX_BOT_TOKEN, MAX_API_URL
 
 PORT = int(os.getenv("PORT", 10000))
 
-# --- ФУНКЦИЯ ОТПРАВКИ СООБЩЕНИЯ В ЧАТ МАКСА ---
-async def send_response_to_max(chat_id: int, text: str):
-    """Отправляет реальное текстовое сообщение обратно пользователю в чат"""
-    # Используем официальный метод sendMessage базового API
-    url = f"{MAX_API_URL}/sendMessage"
+# --- АВТОМАТИЧЕСКАЯ СВЯЗКА БОТА С RENDER ---
+async def set_webhook_on_start():
+    """Сообщает платформе MAX, куда нужно пересылать сообщения из чата"""
+    webhook_url = "https://mark-x-bot.onrender.com/"
     
-    payload = {
-        "chat_id": chat_id,
-        "text": text
-    }
-    
+    # Пытаемся вызвать стандартный метод setWebhook
+    url = f"{MAX_API_URL}/setWebhook"
+    payload = {"url": webhook_url}
     headers = {
         "Authorization": f"Bearer {MAX_BOT_TOKEN}",
         "Content-Type": "application/json"
     }
     
-    print(f"📤 Отправляем ответ в чат {chat_id}: '{text}'", flush=True)
-    
+    print(f"📡 Попытка связать бота с новым адресом: {webhook_url}", flush=True)
     async with aiohttp.ClientSession() as session:
         try:
             async with session.post(url, json=payload, headers=headers) as resp:
                 result = await resp.text()
-                print(f"📤 Статус отправки: {resp.status}. Ответ API: {result}", flush=True)
+                print(f"📡 Ответ платформы на привязку: {result} (Статус: {resp.status})", flush=True)
         except Exception as e:
-            print(f"❌ Не удалось отправить сообщение в MAX: {e}", flush=True)
+            print(f"❌ Ошибка отправки запроса привязки: {e}", flush=True)
 
-# --- ОБРАБОТЧИК ВХОДЯЩИХ СОБЫТИЙ ---
+# --- ФУНКЦИЯ ОТПРАВКИ СООБЩЕНИЯ В ЧАТ ---
+async def send_response_to_max(chat_id: int, text: str):
+    url = f"{MAX_API_URL}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    headers = {
+        "Authorization": f"Bearer {MAX_BOT_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    async with aiohttp.ClientSession() as session:
+        try:
+            await session.post(url, json=payload, headers=headers)
+            print(f"📤 Отправлен ответ в чат {chat_id}: '{text}'", flush=True)
+        except Exception as e:
+            print(f"❌ Не удалось отправить ответ: {e}", flush=True)
+
+# --- ОБРАБОТЧИК ЖИВОГО ТРАФИКА ИЗ ЧАТА ---
 async def handle_webhook(request):
     try:
         data = await request.json()
-        print(f"📩 [ЖИВОЙ ХУК ИЗ MAX]: {data}", flush=True)
+        print(f"📩 [УРА, ТРАФИК ПОШЁЛ!]: {data}", flush=True)
         
-        # Вытаскиваем текст и ID чата из входящего вебхука
         message = data.get("message", {})
         chat_id = message.get("chat", {}).get("id") or data.get("chat_id")
         user_text = message.get("text", "").strip()
         
         if chat_id and user_text:
-            print(f"👤 Юзер написал: '{user_text}' в чате {chat_id}", flush=True)
-            
-            # Реагируем на команду
             if user_text.lower() == "подключить канал":
-                reply = "⏳ Марк принял команду! Теперь перешли мне любой пост из канала, который нужно подключить."
-                await send_response_to_max(chat_id, reply)
+                await send_response_to_max(chat_id, "⏳ Команда принята! Перешли мне пост из канала.")
             else:
-                reply = f"Привет! Я услышал тебя. Ты написал: '{user_text}'. Давай настроим работу каналов!"
-                await send_response_to_max(chat_id, reply)
+                await send_response_to_max(chat_id, f"Марк на связи! Ты написал: '{user_text}'")
                 
         return web.Response(text="OK", status=200)
     except Exception as e:
@@ -66,7 +71,7 @@ async def main():
     app = web.Application()
     app.router.add_post("/", handle_webhook)
     app.router.add_post("/{tail:.*}", handle_webhook)
-    app.router.add_get("/", lambda r: web.Response(text="Бот МаркX онлайн на Render и готов слать сообщения!"))
+    app.router.add_get("/", lambda r: web.Response(text="Бот МаркX онлайн!"))
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -74,6 +79,10 @@ async def main():
     site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
     print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
+    
+    # Даем серверу секунду опомниться и делаем привязку
+    await asyncio.sleep(1)
+    await set_webhook_on_start()
     
     while True:
         await asyncio.sleep(3600)
