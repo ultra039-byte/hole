@@ -1,87 +1,118 @@
 import asyncio
 import sys
 import os
+import aiohttp
 from aiohttp import web
+from config import MAX_BOT_TOKEN, MAX_API_URL
 
 PORT = int(os.getenv("PORT", 10000))
 
-# Временная база данных в памяти для отслеживания наших постов
-# Структура: { post_id: {"text": "текст", "status": "draft/published", "updated": False} }
-POSTS_DB = {}
-post_id_counter = 1
+# --- НАША БАЗА ДАННЫХ В ПАМЯТИ ---
+CONNECTED_CHANNELS = set()
+ADMIN_STATE = None
 
-# --- БЛОК ПРОЦЕССОВ ПОСТИНГА И ИЗМЕНЕНИЯ ---
+# --- БЛОК ПРОВЕРКИ ПРАВ И СБОР БАЗЫ ---
 
-def create_post(text: str) -> int:
-    """Процесс создания нового поста (Постинг)"""
-    global post_id_counter
-    p_id = post_id_counter
-    POSTS_DB[p_id] = {
-        "text": text,
-        "status": "draft",
-        "updated": False
+async def check_if_bot_is_admin(channel_id: str) -> bool:
+    """Процесс: Проверка, является ли Марк админом в канале"""
+    # Каноничный метод большинства API для проверки участников чата
+    url = f"{MAX_API_URL}/getChatMember"
+    params = {
+        "chat_id": channel_id,
+        "user_id": "bot_id_placeholder"  # В реальном запросе сюда передается ID самого бота
     }
-    post_id_counter += 1
-    print(f"📝 [ПРОЦЕСС ПОСТИНГА] Создан черновик поста #{p_id}: '{text}'", flush=True)
-    return p_id
-
-def publish_post(p_id: int):
-    """Процесс публикации поста"""
-    if p_id in POSTS_DB:
-        POSTS_DB[p_id]["status"] = "published"
-        print(f"🚀 [ПРОЦЕСС ПОСТИНГА] Пост #{p_id} успешно опубликован!", flush=True)
+    headers = {"Authorization": f"Bearer {MAX_BOT_TOKEN}"}
+    
+    print(f"🔍 [ПРОВЕРКА ПРАВ] Марк проверяет свои права в канале {channel_id}...", flush=True)
+    
+    # Симулируем запрос к API (так как мы пока не деплоим внешние хуки)
+    # В реальном коде здесь будет: async with session.get(url, params=params) ...
+    await asyncio.sleep(0.5) 
+    
+    # Для теста сделаем, что в @auto_news он админ, а в других — нет
+    if channel_id == "@auto_news":
+        print(f"🟢 [УСПЕХ] Права подтверждены! Марк является администратором в {channel_id}.", flush=True)
+        return True
     else:
-        print(f"❌ Ошибка публикации: Пост #{p_id} не найден", flush=True)
+        print(f"❌ [ОТКАЗ] Марк НЕ админ в {channel_id} или у него нет прав на публикацию!", flush=True)
+        return False
 
-def edit_post(p_id: int, new_text: str):
-    """Процесс изменения/редактирования существующего поста"""
-    if p_id in POSTS_DB:
-        old_text = POSTS_DB[p_id]["text"]
-        POSTS_DB[p_id]["text"] = new_text
-        POSTS_DB[p_id]["updated"] = True
-        print(f"✏️ [ПРОЦЕСС ИЗМЕНЕНИЯ] Пост #{p_id} изменен!", flush=True)
-        print(f"   Было: '{old_text}'\n   Стало: '{new_text}'", flush=True)
+
+def click_connect_channel_button():
+    """Админ нажал кнопку 'ПОДКЛЮЧИТЬ КАНАЛ'"""
+    global ADMIN_STATE
+    ADMIN_STATE = "WAITING_FOR_CHANNEL_POST"
+    print("\n🔘 [КНОПКА НАЖАТА] Админ выбрал: 'ПОДКЛЮЧИТЬ КАНАЛ'", flush=True)
+    print("⏳ [СТАТУС] Марк перешел в режим ожидания поста из канала...", flush=True)
+
+
+async def handle_incoming_post(forwarded_from_chat: str):
+    """Прием поста из канала, проверка прав и добавление в базу"""
+    global ADMIN_STATE
+    
+    if ADMIN_STATE != "WAITING_FOR_CHANNEL_POST":
+        print(f"⚠️ [ИГНОР] Пришел пост из {forwarded_from_chat}, но Марк не в режиме настройки.", flush=True)
+        return
+        
+    # СТАДИЯ ПРОВЕРКИ: Прежде чем сохранить, проверяем админку
+    is_admin = await check_if_bot_is_admin(forwarded_from_chat)
+    
+    if not is_admin:
+        print(f"🚫 [ОШИБКА ПОДКЛЮЧЕНИЯ] Не удалось подключить {forwarded_from_chat}. Сначала добавьте бота в админы канала!", flush=True)
+        ADMIN_STATE = None  # Сбрасываем режим ожидания
+        show_connected_channels()
+        return
+
+    # Если проверка прошла — сохраняем
+    if forwarded_from_chat not in CONNECTED_CHANNELS:
+        CONNECTED_CHANNELS.add(forwarded_from_chat)
+        print(f"🎉 [БАЗА ОБНОВЛЕНА] Канал {forwarded_from_chat} УСПЕШНО ПОДКЛЮЧЕН!", flush=True)
     else:
-        print(f"❌ Ошибка изменения: Пост #{p_id} не найден", flush=True)
+        print(f"⚠️ [БАЗА] Канал {forwarded_from_chat} уже есть в списке.", flush=True)
+        
+    ADMIN_STATE = None
+    show_connected_channels()
+
+
+def show_connected_channels():
+    """Опция: Список подключенных каналов"""
+    print("\n📋 [ОПЦИЯ: ПОДКЛЮЧЕННЫЕ КАНАЛЫ] Текущий список в базе:")
+    if not CONNECTED_CHANNELS:
+        print("   ❌ Нет подключенных каналов", flush=True)
+    else:
+        for i, channel in enumerate(CONNECTED_CHANNELS, 1):
+            print(f"   {i}. {channel}", flush=True)
+    print("----------------------------------------\n", flush=True)
+
 
 # --- СЕРВЕРНАЯ ЧАСТЬ ---
 
 async def handle_webhook(request):
-    """Приём внешних событий и триггеров"""
     try:
         data = await request.json()
         action = data.get("action")
         
-        # Симулируем процессы через входящие запросы для тестов
-        if action == "create":
-            text = data.get("text", "Новый пост")
-            p_id = create_post(text)
-            return web.json_response({"status": "created", "post_id": p_id})
+        if action == "click_connect":
+            click_connect_channel_button()
+            return web.json_response({"status": "waiting_for_post"})
+        elif action == "send_post":
+            channel_name = data.get("channel_name", "@unknown_channel")
+            await handle_incoming_post(channel_name)
+            return web.json_response({"channels": list(CONNECTED_CHANNELS)})
             
-        elif action == "publish":
-            p_id = int(data.get("post_id", 0))
-            publish_post(p_id)
-            return web.json_response({"status": "published", "post_id": p_id})
-            
-        elif action == "edit":
-            p_id = int(data.get("post_id", 0))
-            new_text = data.get("text", "Измененный текст")
-            edit_post(p_id, new_text)
-            return web.json_response({"status": "edited", "post_id": p_id})
-
-        return web.Response(text="МаркX принял запрос, но действие неизвестно", status=200)
+        return web.Response(text="МаркX на связи.", status=200)
     except Exception as e:
-        print(f"❌ Ошибка обработки запроса: {e}", flush=True)
+        print(f"❌ Ошибка: {e}", flush=True)
         return web.Response(text="Error", status=500)
 
 async def main():
     print(f"🔥 МАРК X ЗАПУСКАЕТСЯ НА RENDER (ПОРТ {PORT})... 🔥", flush=True)
-    print("🤖 ЛОГИКА ПОСТИНГА И ИЗМЕНЕНИЙ ПОДКЛЮЧЕНА СТРОГО В КОДЕ.", flush=True)
+    print("📋 ЭТАП 1 + ВАЛИДАЦИЯ ПРАВ АДМИНИСТРАТОРА", flush=True)
     
     app = web.Application()
     app.router.add_post("/", handle_webhook)
     app.router.add_post("/{tail:.*}", handle_webhook)
-    app.router.add_get("/", lambda r: web.Response(text="Бот МаркX онлайн и обрабатывает логику постинга!"))
+    app.router.add_get("/", lambda r: web.Response(text="МаркX: База каналов с проверкой прав активна!"))
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -90,13 +121,19 @@ async def main():
     await site.start()
     print(f"🟢 Сервер слушает интерфейс 0.0.0.0:{PORT}", flush=True)
     
-    # Демонстрация работы процессов прямо в консоли при старте для проверки
-    await asyncio.sleep(2)
-    print("\n--- ТЕСТОВАЯ СИМУЛЯЦИЯ ПРОЦЕССОВ ВНУТРИ БОТА ---", flush=True)
-    my_post = create_post("Привет, это мой первый автоматический пост!")
-    publish_post(my_post)
-    edit_post(my_post, "Привет, это мой первый автоматический пост! (Отредактировано)")
-    print("------------------------------------------------\n", flush=True)
+    # --- СИМУЛЯЦИЯ ДВУХ СИТУАЦИЙ ---
+    await asyncio.sleep(1)
+    
+    # Ситуация А: Пробуем подключить канал, где Марк АДМИН
+    click_connect_channel_button()
+    await asyncio.sleep(1)
+    await handle_incoming_post("@auto_news")
+    
+    # Ситуация Б: Пробуем подключить канал, где Марка ЗАБЫЛИ сделать админом
+    await asyncio.sleep(1)
+    click_connect_channel_button()
+    await asyncio.sleep(1)
+    await handle_incoming_post("@crypto_mafia")
     
     while True:
         await asyncio.sleep(3600)
